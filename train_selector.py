@@ -14,14 +14,14 @@ def main(args):
     print('\nInput Arguments')
     print('---------------')
     for k, v in sorted(dict(vars(args)).items()):
-        print('%s: %s' % (k, str(v)))
-    
+        print(f'{k}: {str(v)}')
+
     print('\n> Create generator of video pairs')
     print('>> loading pairs...')
     X_tr, X_val, y_tr, y_val = utils.generate_selector_dataset(threshold=args.threshold)
     train_dataset = SelectorPairGenerator(X_tr, y_tr, args)
     val_dataset = SelectorPairGenerator(X_val, y_val, args)
-    
+
     print('\n> Building network')
     model = SelectorNetwork(**vars(args))
     model = model.to(args.gpu_id)
@@ -33,11 +33,15 @@ def main(args):
                                  lr=args.learning_rate, 
                                  weight_decay=args.weight_decay)
     global_step = torch.zeros((1,))
-    
+
     if args.load_model:
         print('>> loading network')
-        d = torch.load(os.path.join(args.experiment_name, 'model_{}.pth'.format(
-            model.get_name())), map_location='cpu')
+        d = torch.load(
+            os.path.join(
+                args.experiment_name, f'model_{model.get_name()}.pth'
+            ),
+            map_location='cpu',
+        )
         model.load_state_dict(d['model'])
         if 'optimizer' in d:
             optimizer.load_state_dict(d['optimizer'])
@@ -53,7 +57,7 @@ def main(args):
                             collate_fn=utils.collate_selector)
         model.train()
         losses = []
-        pbar = tqdm(loader, desc='epoch {}'.format(epoch), unit='iter')
+        pbar = tqdm(loader, desc=f'epoch {epoch}', unit='iter')
         for videos, masks, similarities, y_true in pbar:
             optimizer.zero_grad()
 
@@ -82,7 +86,7 @@ def main(args):
                 self_sims = model.index_video(videos.to(args.gpu_id), masks.to(args.gpu_id))
                 queries, targets = torch.chunk(self_sims, 2, dim=0)
                 preds = model(torch.cat([queries, targets, similarities.unsqueeze(1).to(args.gpu_id)], 1))
-                
+
                 y_true.extend(y.cpu().numpy().tolist())
                 y_pred.extend((preds.squeeze(1).cpu().numpy() > 0.5).tolist())
 

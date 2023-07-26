@@ -20,7 +20,7 @@ def main(args):
     print('\n> Create generator of video pairs')
     print('>> loading pairs...')
     dataset = StudentPairGenerator(args)
-    
+
     print('\n> Building network')
     if 'fine' in args.student_type:
         model = FineGrainedStudent(**vars(args))
@@ -29,18 +29,22 @@ def main(args):
     model = model.to(args.gpu_id)
     model.train()
     print(model)
-    
+
     distil_criterion = nn.L1Loss()
-    params = [v for v in filter(lambda p: p.requires_grad, model.parameters())]
+    params = list(filter(lambda p: p.requires_grad, model.parameters()))
     optimizer = torch.optim.Adam(params,
                                  lr=args.learning_rate, 
                                  weight_decay=args.weight_decay)
     global_step = torch.zeros((1,))
-    
+
     if args.load_model:
         print('>> loading network')
-        d = torch.load(os.path.join(args.experiment_path, 'model_{}.pth'.format(
-            model.get_network_name())), map_location='cpu')
+        d = torch.load(
+            os.path.join(
+                args.experiment_path, f'model_{model.get_network_name()}.pth'
+            ),
+            map_location='cpu',
+        )
         model.load_state_dict(d['model'])
         if 'optimizer' in d:
             optimizer.load_state_dict(d['optimizer'])
@@ -65,23 +69,23 @@ def main(args):
         loader = DataLoader(dataset, num_workers=args.workers, 
                             shuffle=True, batch_size=args.batch_sz//2,
                             collate_fn=utils.collate_student)
-        
+
         tloss, dloss, rloss = [], [], []
-        pbar = tqdm(loader, desc='epoch {}'.format(epoch), unit='iter')
+        pbar = tqdm(loader, desc=f'epoch {epoch}', unit='iter')
         for pairs in pbar:
             optimizer.zero_grad()
 
             videos = pairs[0].to(args.gpu_id)
             masks = pairs[1].to(args.gpu_id)
             similarities = pairs[2].to(args.gpu_id)
-            
+
             features = model.index_video(videos, masks)
             anchors, positives, negatives = torch.chunk(features, 3, dim=0)
             anchors_mk, positives_mk, negatives_mk = torch.chunk(masks, 3, dim=0)
 
             pos_pairs, neg_pairs, regularization_loss = model(
                 anchors, positives, negatives, anchors_mk, positives_mk, negatives_mk)
-            
+
             teacher_similarities = similarities.view(-1)
             student_similarities = torch.cat([pos_pairs, neg_pairs], 1).view(-1)
             distillation_loss = distil_criterion(student_similarities, teacher_similarities)
@@ -92,7 +96,7 @@ def main(args):
             loss.backward()
             optimizer.step()
             global_step += 1
-            
+
             tloss.append(loss.detach().cpu().numpy())
             dloss.append(distillation_loss.detach().cpu().numpy())
             if regularization_loss is not None:

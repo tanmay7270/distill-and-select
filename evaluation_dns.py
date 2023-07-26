@@ -31,7 +31,7 @@ def calculate_similarities_to_queries(model, queries, target, args):
 
 
 def get_similarities_for_percentage(coarse_similarities, fine_similarities, selector_scores, percentage, mask):
-    similarities = dict()
+    similarities = {}
     for query, query_sims in coarse_similarities.items():
         similarities[query] = np.copy(query_sims)
         idx = selector_scores[query][:int(percentage*np.sum(mask))]
@@ -54,26 +54,26 @@ def main(fine_student, coarse_student, selector_network, dataset, args):
     for video in tqdm(loader):
         video_features = video[0][0].to(args.gpu_id)
         video_id = video[2][0]
-        
+
         if len(video_id) == 0:
             continue
         queries_ids.append(video_id)
         all_db.add(video_id)
-        
+
         # Extract features of the query video
         fine_features = fine_student.index_video(video_features)
         if not args.load_queries: fine_features = fine_features.cpu()
         coarse_features = coarse_student.index_video(video_features).cpu()
         selector_features = selector_network.index_video(video_features).cpu()
-        
+
         queries_fs.append(fine_features)
         queries_cs.append(coarse_features)
         queries_sn.append(selector_features)
-            
+
     # Initialize similarities of the two students
     fine_similarities = dict({query: np.zeros(len(dataset.get_database())) for query in queries_ids})
     coarse_similarities = dict({query: np.zeros(len(dataset.get_database())) for query in queries_ids})
-    
+
     # Create a video generator for the database video
     generator = DatasetGenerator(args.dataset_hdf5, dataset.get_database())
     loader = DataLoader(generator, num_workers=args.workers, collate_fn=utils.collate_eval)
@@ -85,14 +85,14 @@ def main(fine_student, coarse_student, selector_network, dataset, args):
     for j, video in enumerate(tqdm(loader)):
         video_features = video[0][0].to(args.gpu_id)
         video_id = video[2][0]
-        
+
         if len(video_id) == 0:
             available_video_mask.append(False)
             continue
         available_video_mask.append(True)
         targets_ids.append(video_id)
         all_db.add(video_id)
-        
+
         # Extract features of the target video
         fine_features = fine_student.index_video(video_features)
         coarse_features = coarse_student.index_video(video_features).cpu()
@@ -100,11 +100,11 @@ def main(fine_student, coarse_student, selector_network, dataset, args):
 
         targets_cs.append(coarse_features)
         targets_sn.append(selector_features)
-        
+
         storage_fs.append(fine_features.nelement() * (1/8 if args.binarization else 4))
         storage_cs.append(coarse_features.nelement() * 4)
         storage_sn.append(selector_features.nelement() * 4)
-        
+
         # Calculate fine-grained similarities
         similarities, total_time = calculate_similarities_to_queries(fine_student, queries_fs, fine_features, args)
         time_fs.append(total_time)
@@ -113,7 +113,7 @@ def main(fine_student, coarse_student, selector_network, dataset, args):
     targets_sn = torch.cat(targets_sn, 0)
 
     print('\n> Calculate coarse-grained similarities and selector\'s scores')
-    selector_scores = dict()
+    selector_scores = {}
     for i, query in enumerate(tqdm(queries_ids)):
         start_time = time.time()
         # Calculate coarse-grained similarities
@@ -121,7 +121,7 @@ def main(fine_student, coarse_student, selector_network, dataset, args):
         time_cs.append(time.time() - start_time)
         similarities = torch.cat(similarities)
         coarse_similarities[query][available_video_mask] = similarities.squeeze(-1).numpy()
-        
+
         start_time = time.time()
         # Calculate query-target scores based on the selector network
         selector_features = queries_sn[i].repeat(len(targets_ids), 1)
@@ -129,29 +129,29 @@ def main(fine_student, coarse_student, selector_network, dataset, args):
         scores = selector_network(selector_features).squeeze(-1)
         selector_scores[query] = torch.argsort(scores, descending=True).cpu().numpy()
         time_sn.append(time.time() - start_time)
-    
+
     print('\n> Calculate results')
     print('\n---Storage requirements---')
     storage_fs = np.sum(storage_fs) / len(targets_ids)  / 1024
-    print('Fine-grained Student: {} KB per video'.format(np.round(storage_fs)))
+    print(f'Fine-grained Student: {np.round(storage_fs)} KB per video')
     storage_cs = np.sum(storage_cs) / len(targets_ids)  / 1024
-    print('Coarse-grained Student: {} KB per video'.format(np.round(storage_cs, 4)))
+    print(f'Coarse-grained Student: {np.round(storage_cs, 4)} KB per video')
     storage_dns = storage_fs + storage_cs + np.sum(storage_sn) / len(targets_ids)  / 1024
-    print('DnS framework: {} KB per video'.format(np.round(storage_dns)))
-    
+    print(f'DnS framework: {np.round(storage_dns)} KB per video')
+
     print('\n---Time requirements---')
     time_fs = np.sum(time_fs) / len(queries_ids)
-    print('Fine-grained Student: {} sec per query'.format(np.round(time_fs, 4)))
+    print(f'Fine-grained Student: {np.round(time_fs, 4)} sec per query')
     time_cs = np.sum(time_cs) / len(queries_ids)
-    print('Coarse-grained Student: {} sec per query'.format(np.round(time_cs, 4)))
-    
+    print(f'Coarse-grained Student: {np.round(time_cs, 4)} sec per query')
+
     if args.percentage == 'all':
         percentages = [np.round(i * 0.05, 2) for i in range(21)]
         time_dns = np.round([time_fs * p + time_cs + np.sum(time_sn) / len(queries_ids) for p in percentages], 4)
         print('DnS framework: {} sec per query'.format('\t'.join(map(str, time_dns))))
-        
+
         print('\n---Retrieval results---')
-        mAPs = dict()
+        mAPs = {}
         for p in percentages:
             similarities = get_similarities_for_percentage(coarse_similarities, fine_similarities, 
                                                            selector_scores, p, available_video_mask)
@@ -159,12 +159,16 @@ def main(fine_student, coarse_student, selector_network, dataset, args):
             for k, v in results.items():
                 if k not in mAPs: mAPs[k] = []
                 mAPs[k].append(np.round(v, 4))
-        print('perc.:\t{}'.format('\t'.join(['{}%'.format(int(p*100)) for p in percentages])))
+        print(
+            'perc.:\t{}'.format(
+                '\t'.join([f'{int(p * 100)}%' for p in percentages])
+            )
+        )
         for k, v in mAPs.items():
             print('{}:\t{}'.format(k, '\t'.join(map(str, v))))
     else:
         time_dns = time_fs * float(args.percentage) + time_cs + np.sum(time_sn) / len(queries_ids)
-        print('DnS: {} sec per query'.format(np.round(time_dns, 4)))
+        print(f'DnS: {np.round(time_dns, 4)} sec per query')
 
         print('\n---Retrieval results---')
         similarities = get_similarities_for_percentage(coarse_similarities, fine_similarities, 
@@ -216,23 +220,23 @@ if __name__ == '__main__':
     elif 'SVD' in args.dataset:
         from datasets import SVD
         dataset = SVD()
-    
+
     print('\n> Loading Fine-grained Student')
     if args.fine_student_path is not None:
         d = torch.load(args.fine_student_path, map_location='cpu')
         fine_student = FineGrainedStudent(**vars(d['args']))
         fine_student.load_state_dict(d['model'])
-    else:
-        if not args.attention and not args.binarization:
-            raise Exception('No pretrained network for the given inputs. Provide either `--attention` or `--binarization` arguments as true for the pretrained fine-grained students.')
+    elif args.attention or args.binarization:
         fine_student = FineGrainedStudent(attention=args.attention, 
                                           binarization=args.binarization, 
                                           pretrained=True)
+    else:
+        raise Exception('No pretrained network for the given inputs. Provide either `--attention` or `--binarization` arguments as true for the pretrained fine-grained students.')
     fine_student = fine_student.to(args.gpu_id)
     fine_student.eval()
     print('>> Network architecture')
     print(fine_student)
-    
+
     print('\n> Loading Coarse-grained Student')
     if args.coarse_student_path is not None:
         d = torch.load(args.coarse_student_path, map_location='cpu')
@@ -244,7 +248,7 @@ if __name__ == '__main__':
     coarse_student.eval()
     print('>> Network architecture')
     print(coarse_student)
-    
+
     print('\n> Loading Selector Network')
     if args.selector_network_path is not None:
         d = torch.load(args.selector_network_path, map_location='cpu')
@@ -262,5 +266,5 @@ if __name__ == '__main__':
     selector_network.eval()
     print('>> Network architecture')
     print(selector_network)
-    
+
     main(fine_student, coarse_student, selector_network, dataset, args)

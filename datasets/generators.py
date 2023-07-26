@@ -34,7 +34,9 @@ class StudentPairGenerator(Dataset):
 
     def __init__(self, args):
         super(StudentPairGenerator, self).__init__()
-        ground_truths = pk.load(open('data/trainset_similarities_{}.pk'.format(args.teacher), 'rb'))
+        ground_truths = pk.load(
+            open(f'data/trainset_similarities_{args.teacher}.pk', 'rb')
+        )
         self.index = ground_truths['index']
         self.pairs = ground_truths['pairs']
         self.feature_file = h5py.File(args.trainset_hdf5, "r")
@@ -79,8 +81,7 @@ class StudentPairGenerator(Dataset):
             if rnd < 0.2:
                 N, T, D = video.shape
                 window_size = np.random.randint(4, 16)
-                offset = N % window_size
-                if offset:
+                if offset := N % window_size:
                     video = np.concatenate([video, video], 0)[:N + (window_size - offset)]
                 video = video.reshape(-1, window_size, T, D)
                 if rnd < 0.1:

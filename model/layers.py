@@ -57,17 +57,11 @@ class RMAC(nn.Module):
             wl = math.floor(2 * w / (l + 1))
             wl2 = math.floor(wl / 2 - 1)
 
-            if l + Wd == 1:
-                b = 0
-            else:
-                b = (W - wl) / (l + Wd - 1)
+            b = 0 if l + Wd == 1 else (W - wl) / (l + Wd - 1)
             cenW = torch.floor(wl2 + torch.tensor(range(l - 1 + Wd + 1)) * b) - wl2  # center coordinates
-            if l + Hd == 1:
-                b = 0
-            else:
-                b = (H - wl) / (l + Hd - 1)
+            b = 0 if l + Hd == 1 else (H - wl) / (l + Hd - 1)
             cenH = torch.floor(wl2 + torch.tensor(range(l - 1 + Hd + 1)) * b) - wl2  # center coordinates
-            
+
             for i in cenH.long().tolist():
                 v = []
                 for j in cenW.long().tolist():
@@ -152,15 +146,11 @@ class BinarizationLayer(nn.Module):
     def forward(self, x):
         x = F.normalize(x, p=2, dim=-1)
         x = torch.matmul(x, self.W)
-        if self.training:
-            x = torch.erf(x / np.sqrt(2 * self.sigma))
-        else:
-            x = torch.sign(x)
+        x = torch.erf(x / np.sqrt(2 * self.sigma)) if self.training else torch.sign(x)
         return x
 
     def __repr__(self,):
-        return '{}(dims={}, bits={}, sigma={})'.format(
-            self.__class__.__name__, self.W.shape[0], self.W.shape[1], self.sigma)
+        return f'{self.__class__.__name__}(dims={self.W.shape[0]}, bits={self.W.shape[1]}, sigma={self.sigma})'
 
     
 class NetVLAD(nn.Module):

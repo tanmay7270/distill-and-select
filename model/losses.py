@@ -30,4 +30,4 @@ class SimilarityRegularizationLoss(nn.Module):
         return loss
     
     def __repr__(self,):
-        return '{}(min_val={}, max_val={})'.format(self.__class__.__name__, self.min_val, self.max_val)
+        return f'{self.__class__.__name__}(min_val={self.min_val}, max_val={self.max_val})'

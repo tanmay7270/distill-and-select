@@ -12,7 +12,6 @@ def check_dims(features, mask=None, axis=0):
             mask = mask.unsqueeze(axis)
         return features, mask
     else:
-        raise Exception('Wrong shape of input video tensor. The shape of the tensor must be either '
-                        '[N, T, R, D] or [T, R, D], where N is the batch size, T the number of frames, '
-                        'R the number of regions and D number of dimensions. '
-                        'Input video tensor has shape {}'.format(features.shape))
+        raise Exception(
+            f'Wrong shape of input video tensor. The shape of the tensor must be either [N, T, R, D] or [T, R, D], where N is the batch size, T the number of frames, R the number of regions and D number of dimensions. Input video tensor has shape {features.shape}'
+        )

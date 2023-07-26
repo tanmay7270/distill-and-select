@@ -61,7 +61,7 @@ class SelectorNetwork(nn.Module):
         self.attention = Attention(dims, norm=False)
         self.visil_head = VideoComperator()
         self.mlp = MetadataModel(3, hidden_size, num_layers)
-        
+
         if pretrained:
             if not (attention or binarization):
                 raise Exception('No pretrained model provided for the selected settings. '
@@ -70,7 +70,7 @@ class SelectorNetwork(nn.Module):
                 self.load_state_dict(
                     torch.hub.load_state_dict_from_url(
                         model_urls['dns_selector_cg-fg_att'])['model'])
-            elif binarization:
+            else:
                 self.load_state_dict(
                     torch.hub.load_state_dict_from_url(
                         model_urls['dns_selector_cg-fg_bin'])['model'])
