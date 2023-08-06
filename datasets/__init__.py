@@ -53,9 +53,11 @@ class CC_WEB_VIDEO(object):
             print('=' * 5, 'CC_WEB_VIDEO Dataset', '=' * 5)
             not_found = len(set(self.queries) - similarities.keys())
             if not_found > 0:
-                print('[WARNING] {} queries are missing from the results and will be ignored'.format(not_found))
-            print('Queries: {} videos'.format(len(similarities)))
-            print('Database: {} videos'.format(len(all_db)))
+                print(
+                    f'[WARNING] {not_found} queries are missing from the results and will be ignored'
+                )
+            print(f'Queries: {len(similarities)} videos')
+            print(f'Database: {len(all_db)} videos')
 
         mAP = self.calculate_mAP(similarities, all_db, all_videos=False, clean=False)
         mAP_star = self.calculate_mAP(similarities, all_db, all_videos=True, clean=False)
@@ -95,7 +97,12 @@ class FIVR(object):
 
     def calculate_mAP(self, query, res, all_db, relevant_labels):
         gt_sets = self.annotation[query]
-        query_gt = set(sum([gt_sets[label] for label in relevant_labels if label in gt_sets], []))
+        query_gt = set(
+            sum(
+                (gt_sets[label] for label in relevant_labels if label in gt_sets),
+                [],
+            )
+        )
         query_gt = query_gt.intersection(all_db)
 
         i, ri, s = 0.0, 0, 0.0
@@ -123,13 +130,15 @@ class FIVR(object):
                     CSVR.append(self.calculate_mAP(query, res, all_db, relevant_labels=['ND', 'DS', 'CS']))
                     ISVR.append(self.calculate_mAP(query, res, all_db, relevant_labels=['ND', 'DS', 'CS', 'IS']))
             if verbose:
-                print('=' * 5, 'FIVR-{} Dataset'.format(self.version.upper()), '=' * 5)
+                print('=' * 5, f'FIVR-{self.version.upper()} Dataset', '=' * 5)
                 not_found = len(set(self.queries) - similarities.keys())
                 if not_found > 0:
-                    print('[WARNING] {} queries are missing from the results and will be ignored'.format(not_found))
+                    print(
+                        f'[WARNING] {not_found} queries are missing from the results and will be ignored'
+                    )
 
-                print('Queries: {} videos'.format(len(similarities)))
-                print('Database: {} videos'.format(len(all_db)))
+                print(f'Queries: {len(similarities)} videos')
+                print(f'Database: {len(all_db)} videos')
 
                 print('-' * 16)
                 print('DSVR mAP: {:.4f}'.format(np.mean(DSVR)))
@@ -144,13 +153,15 @@ class FIVR(object):
                         res = {v: s for v, s in zip(self.database, res) if v in all_db}
                     DAVR.append(self.calculate_mAP(query, res, all_db, relevant_labels=['DA']))
             if verbose:
-                print('=' * 5, 'FIVR-{} Dataset'.format(self.version.upper()), '=' * 5)
+                print('=' * 5, f'FIVR-{self.version.upper()} Dataset', '=' * 5)
                 not_found = len(set(self.queries) - similarities.keys())
                 if not_found > 0:
-                    print('[WARNING] {} queries are missing from the results and will be ignored'.format(not_found))
+                    print(
+                        f'[WARNING] {not_found} queries are missing from the results and will be ignored'
+                    )
 
-                print('Queries: {} videos'.format(len(similarities)))
-                print('Database: {} videos'.format(len(all_db)))
+                print(f'Queries: {len(similarities)} videos')
+                print(f'Database: {len(all_db)} videos')
 
                 print('-' * 16)
                 print('DAVR mAP: {:.4f}'.format(np.mean(DAVR)))
@@ -194,10 +205,7 @@ class EVVE(object):
             # rank = nb of retrieved items so far
 
             # y-size on left side of trapezoid:
-            if rank == 0:
-                precision_0 = 1.0
-            else:
-                precision_0 = ntp / float(rank)
+            precision_0 = 1.0 if rank == 0 else ntp / float(rank)
             # y-size on right side of trapezoid:
             precision_1 = (ntp + 1) / float(rank + 1)
             ap += (precision_1 + precision_0) * recall_step / 2.0
@@ -234,9 +242,11 @@ class EVVE(object):
         if verbose:
             print('=' * 18, 'EVVE Dataset', '=' * 18)
             if not_found > 0:
-                print('[WARNING] {} queries are missing from the results and will be ignored'.format(not_found))
-            print('Queries: {} videos'.format(len(similarities)))
-            print('Database: {} videos\n'.format(len(all_db - set(self.queries))))
+                print(
+                    f'[WARNING] {not_found} queries are missing from the results and will be ignored'
+                )
+            print(f'Queries: {len(similarities)} videos')
+            print(f'Database: {len(all_db - set(self.queries))} videos\n')
             print('-' * 50)
         ap, mAP = [], []
         for evname in sorted(self.events):
@@ -271,7 +281,7 @@ class SVD(object):
     def load_groundtruth(self, filepath):
         gnds = OrderedDict()
         with open(filepath, 'r') as fp:
-            for idx, lines in enumerate(fp):
+            for lines in fp:
                 tmps = lines.strip().split(' ')
                 qid = tmps[0]
                 cid = tmps[1]
@@ -283,10 +293,9 @@ class SVD(object):
         return gnds
 
     def get_unlabeled_keys(self, filepath):
-        videos = list()
+        videos = []
         with open(filepath, 'r') as fp:
-            for tmps in fp:
-                videos.append(tmps.strip())
+            videos.extend(tmps.strip() for tmps in fp)
         return videos
 
     def get_queries(self):
@@ -318,8 +327,10 @@ class SVD(object):
         if verbose:
             print('=' * 5, 'SVD Dataset', '=' * 5)
             if not_found > 0:
-                print('[WARNING] {} queries are missing from the results and will be ignored'.format(not_found))
-            print('Database: {} videos'.format(len(all_db)))
+                print(
+                    f'[WARNING] {not_found} queries are missing from the results and will be ignored'
+                )
+            print(f'Database: {len(all_db)} videos')
 
             print('-' * 16)
             print('mAP: {:.4f}'.format(np.mean(mAP)))

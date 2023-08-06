@@ -52,7 +52,7 @@ class CoarseGrainedStudent(nn.Module):
                     model_urls['dns_cg_student'])['model'])
     
     def get_network_name(self,):
-        return '{}_student'.format(self.student_type)
+        return f'{self.student_type}_student'
 
     def calculate_video_similarity(self, query, target):
         return torch.mm(query, torch.transpose(target, 0, 1))
@@ -64,7 +64,7 @@ class CoarseGrainedStudent(nn.Module):
             x, a = self.attention(x)
         x = torch.sum(x, 2)
         x = F.normalize(x, p=2, dim=-1)
-        
+
         if hasattr(self, 'transformer'):
             x = self.transformer(x, src_key_padding_mask=
                                  (1 - mask).bool() if mask is not None else None)
@@ -72,12 +72,11 @@ class CoarseGrainedStudent(nn.Module):
         if hasattr(self, 'netvlad'):
             x = x.unsqueeze(2).permute(0, 3, 1, 2)
             x = self.netvlad(x, mask=mask)
+        elif mask is None:
+            x = torch.mean(x, 1)
         else:
-            if mask is not None:
-                x = x.masked_fill((1 - mask.unsqueeze(-1)).bool(), 0.0)
-                x = torch.sum(x, 1) / torch.sum(mask, 1, keepdim=True)
-            else:
-                x = torch.mean(x, 1)
+            x = x.masked_fill((1 - mask.unsqueeze(-1)).bool(), 0.0)
+            x = torch.sum(x, 1) / torch.sum(mask, 1, keepdim=True)
         return F.normalize(x, p=2, dim=-1)
     
     def forward(self, anchors, positives, negatives,
@@ -133,10 +132,12 @@ class FineGrainedStudent(nn.Module):
                                 'Use either \'attention=True\' or \'binarization=True\' to load a pretrained model.')
             self.load_state_dict(
                 torch.hub.load_state_dict_from_url(
-                    model_urls['dns_fg_{}_student'.format(self.fg_type)])['model'])
+                    model_urls[f'dns_fg_{self.fg_type}_student']
+                )['model']
+            )
             
     def get_network_name(self,):
-        return '{}_{}_student'.format(self.student_type, self.fg_type)
+        return f'{self.student_type}_{self.fg_type}_student'
     
     def frame_to_frame_similarity(self, query, target, query_mask=None, target_mask=None, batched=False):
         d = target.shape[-1]

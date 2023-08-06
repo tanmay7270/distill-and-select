@@ -21,7 +21,7 @@ class TensorDot(nn.Module):
         return sim
 
     def __repr__(self,):
-        return '{}(pattern={})'.format(self.__class__.__name__, self.pattern)
+        return f'{self.__class__.__name__}(pattern={self.pattern})'
         
 
 class ChamferSimilarity(nn.Module):
@@ -55,7 +55,7 @@ class ChamferSimilarity(nn.Module):
         return self.sim_fun(s, mask)
 
     def __repr__(self,):
-        return '{}(max_axis={}, mean_axis={})'.format(self.__class__.__name__, self.axes[0], self.axes[1])
+        return f'{self.__class__.__name__}(max_axis={self.axes[0]}, mean_axis={self.axes[1]})'
 
 
 class VideoComperator(nn.Module):
@@ -92,10 +92,9 @@ class VideoComperator(nn.Module):
             raise Exception('Input tensor to VideoComperator have to be 3- or 4-dimensional')
 
         if mask is not None:
-            assert mask.shape[-2:] == sim_matrix.shape[-2:], 'Mask tensor must be of the same shape as similarity ' \
-                                                             'matrix in the last two dimensions. Mask shape is {} ' \
-                                                             'while similarity matrix is {}'.format(mask.shape[-2:],
-                                                                                                    sim_matrix.shape[-2:])
+            assert (
+                mask.shape[-2:] == sim_matrix.shape[-2:]
+            ), f'Mask tensor must be of the same shape as similarity matrix in the last two dimensions. Mask shape is {mask.shape[-2:]} while similarity matrix is {sim_matrix.shape[-2:]}'
             mask = mask.unsqueeze(1)
 
         sim = self.rpad1(sim_matrix)
@@ -116,6 +115,6 @@ class VideoComperator(nn.Module):
         sim = self.conv3(sim)
         if mask is not None: sim = sim.masked_fill((1 - mask).bool(), 0.0)
         sim = F.relu(sim)
-        
+
         sim = self.fconv(sim)
         return sim.squeeze(1), mask.squeeze(1) if mask is not None else None

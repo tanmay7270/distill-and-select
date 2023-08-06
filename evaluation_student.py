@@ -37,8 +37,7 @@ def query_vs_target(model, dataset, args):
     print('\n> Extract features of the query videos')
     for video in tqdm(loader):
         video_features = video[0][0]
-        video_id = video[2][0]
-        if video_id:
+        if video_id := video[2][0]:
             features = model.index_video(video_features.to(args.gpu_id))
             if 'load_queries' in args and not args.load_queries: features = features.cpu()
             all_db.add(video_id)
@@ -48,21 +47,20 @@ def query_vs_target(model, dataset, args):
     # Create a video generator for the database video
     generator = DatasetGenerator(args.dataset_hdf5, dataset.get_database())
     loader = DataLoader(generator, num_workers=args.workers, collate_fn=utils.collate_eval)
-    
+
     # Calculate similarities between the queries and the database videos
-    similarities = dict({query: dict() for query in queries_ids})
+    similarities = dict({query: {} for query in queries_ids})
     print('\n> Calculate query-target similarities')
     for video in tqdm(loader):
         video_features = video[0][0]
-        video_id = video[2][0]
-        if video_id:
+        if video_id := video[2][0]:
             features = model.index_video(video_features.to(args.gpu_id))
             sims = calculate_similarities_to_queries(model, queries, features, args)
             all_db.add(video_id)
             for i, s in enumerate(sims):
                 similarities[queries_ids[i]][video_id] = float(s)
-    
-    print('\n> Evaluation on {}'.format(dataset.name))
+
+    print(f'\n> Evaluation on {dataset.name}')
     return dataset.evaluate(similarities, all_db)
 
     
@@ -86,11 +84,11 @@ def queries_vs_database(model, dataset, args):
             queries.append(video_features)
             queries_ids.extend(video_id)
     queries = torch.cat(queries, 0)
-    
+
     # Create a video generator for the database video
     generator = DatasetGenerator(args.dataset_hdf5, dataset.get_database())
     loader = DataLoader(generator, batch_size=args.batch_sz, num_workers=args.workers, collate_fn=utils.collate_eval)
-    
+
     # Extract features of the targets
     targets, targets_ids = [], []
     print('\n> Extract features of the target videos')
@@ -105,16 +103,16 @@ def queries_vs_database(model, dataset, args):
             targets.append(video_features)
             targets_ids.extend(video_id)
     targets = torch.cat(targets, 0)
-    
+
     # Calculate similarities between the queries and the database videos
     print('\n> Calculate query-target similarities')
     sims = model.calculate_video_similarity(queries, targets).cpu().numpy()
-    similarities = dict({query: dict() for query in queries_ids})
+    similarities = dict({query: {} for query in queries_ids})
     for i in range(sims.shape[0]):
         for j in range(sims.shape[1]):
             similarities[queries_ids[i]][targets_ids[j]] = float(sims[i, j])
 
-    print('\n> Evaluation on {}'.format(dataset.name))
+    print(f'\n> Evaluation on {dataset.name}')
     return dataset.evaluate(similarities, all_db)
 
     
@@ -169,17 +167,16 @@ if __name__ == '__main__':
             model = CoarseGrainedStudent(**vars(student_args))
             eval_function = queries_vs_database
         model.load_state_dict(d['model'])
-    else:
-        if args.student_type == 'fine-grained':
-            if not args.attention and not args.binarization:
-                raise Exception('No pretrained network for the given inputs. Provide either `--attention` or `--binarization` arguments as true for the pretrained fine-grained students.')
-            model = FineGrainedStudent(attention=args.attention,
-                                       binarization=args.binarization,
-                                       pretrained=True)
-            eval_function = query_vs_target
-        elif args.student_type == 'coarse-grained':
-            model = CoarseGrainedStudent(pretrained=True)
-            eval_function = queries_vs_database
+    elif args.student_type == 'fine-grained':
+        if not args.attention and not args.binarization:
+            raise Exception('No pretrained network for the given inputs. Provide either `--attention` or `--binarization` arguments as true for the pretrained fine-grained students.')
+        model = FineGrainedStudent(attention=args.attention,
+                                   binarization=args.binarization,
+                                   pretrained=True)
+        eval_function = query_vs_target
+    elif args.student_type == 'coarse-grained':
+        model = CoarseGrainedStudent(pretrained=True)
+        eval_function = queries_vs_database
     model = model.to(args.gpu_id)
     model.eval()
 
